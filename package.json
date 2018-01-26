@@ -10,6 +10,7 @@
     "mrn": "^0.1.7",
     "react": "16.2.0",
     "react-native": "0.52.1",
+    "react-native-mqtt": "0.1.0-beta4",
     "react-native-vector-icons": "^4.5.0",
     "react_native_mqtt": "^1.1.9"
   },

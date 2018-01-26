@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import Icon from 'react-native-vector-icons/Ionicons';
+import mqtt from 'react-native-mqtt';
 import init from 'react_native_mqtt';
 import {
   Platform,
@@ -15,28 +16,40 @@ init({
 	storageBackend: AsyncStorage,
 	defaultExpires: 1000 * 3600 * 24,
 	enableCache: true,
-	reconnect: true,
-	sync: {}
+	sync : {}
 });
+
+options={
+	//host: 'test.mosquitto.org',
+	host: '192.168.1.1',
+	port: 1883,
+	path: "/lampupdate",
+	id: "android",
+	topic: "/lampupdate"
+}
+
+pahoClient = new Paho.MQTT.Client(options.host, options.port, options.path, options.id);
 
 export default class App extends Component<{}> {
 	constructor(props) {
 		super(props);
 
 		this.onLampPress = this.onLampPress.bind(this);
-
-		var lampstate = [0, 0, 0, 0];
-
-		const client = new Paho.MQTT.Client('iot.eclipse.org', 443, 'uname');
-		client.onConnectionLost = this.onConnectionLost;
-		client.onMessageArrived = this.onMessageArrived;
-		client.connect({ onSuccess: this.onConnect, useSSL: false });
-
+		this.onFailureToConnect = this.onFailureToConnect.bind(this);
+		this.client = null;
 		this.state = {
 			text: ['...'],
-			lampstate: lampstate,
-			client: client,
+			lampstate: [0, 0, 0, 0],
+			client: pahoClient,
 		}
+		pahoClient.onConnectionLost = () => { this.pushText('{diskonek}'); };
+		pahoClient.connect({
+										onSuccess: () => { this.pushText('{koneksi ok}'); },
+										timeout: 3,
+										userName: "mqtt",
+										password: "dupadupa",
+										onFailure: this.onFailureToConnect,
+									});
 	}
 
 	pushText(entry) {
@@ -44,48 +57,54 @@ export default class App extends Component<{}> {
 		this.setState({ text: [...text, entry] });
 	}
 
-	onConnect() {
-		const { client } = this.state;
-		client.subscribe('WORLD');
-		this.pushText('connected');
-	}
-
-	onConnectionLost(responseObject) {
-		if (responseObject.errorCode != 0) {
-			this.pushText("disconnected: " + 
-					responseObject.errorMessage);
-		}
-	}
-
-	onMessageArrived(message) {
-		this.pushText("new message:" + 
-				message.payloadString);
-	}
-
 	onLampPress = (key, i) => {	
 		const { lampstate } = this.state;
 		lampstate[key] = !lampstate[key];
-		this.setState({lampstate: lampstate});
+
+		this.turnLamp().catch(e => console.warn("Error detected : " + e));
+
+		this.setState({ lampstate });
 	}	
+
+	onFailureToConnect(ctx) {
+		this.pushText("{ga bisa konek}");
+	}
+
+	async turnLamp() {
+		const { client, lampstate } = this.state;
+		var val = 0;
+
+		for(let i = 0; i < lampstate.length; i++) {
+				val |= (lampstate[i] << i);
+		}
+		val += 1;
+
+		//console.warn("Sending " + val + " on topic: " + options.topic);
+
+		if (client) {
+			await client.publish(options.topic, String(val), 0);
+		}
+	}
 
   render() {
 		var lamps = [];
-		const { text } = this.state;
+		const { text, lampstate } = this.state;
 
-		for(let i = 0; i < this.state.lampstate.length; i++) {
+		for(let i = 0; i < lampstate.length; i++) {
 			lamps.push(
 				<TouchableOpacity key={i} 
-					style={[styles.lampiconbutton, this.state.lampstate[i] && {backgroundColor: '#fcea8f'}]} 
+					style={[styles.lampiconbutton, lampstate[i] && {backgroundColor: '#fcea8f'}]} 
 					onPress={this.onLampPress.bind(this, i)}>
 					<Icon name={"ios-bulb"} 
-						style={[styles.lampicon, this.state.lampstate[i] == 1 && {color: 'orange'}]} />
+						style={[styles.lampicon, lampstate[i] == 1 && {color: 'orange'}]} />
 				</TouchableOpacity>
 			);	
 		}
     return (
       <View style={styles.container}>
 				{ lamps }
-				{ text.map((entry, index) => <Text key={index}>{entry}</Text>) }
+				{ text.map((entry, index) => <Text key={index} 
+								style={{fontSize: 10}}>{entry}</Text>) }
       </View>
     );
   }
