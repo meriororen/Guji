@@ -1,7 +1,5 @@
 import React, { Component } from 'react';
 import Icon from 'react-native-vector-icons/Ionicons';
-import mqtt from 'react-native-mqtt';
-import init from 'react_native_mqtt';
 import {
   Platform,
   StyleSheet,
@@ -11,45 +9,23 @@ import {
 	AsyncStorage,
 } from 'react-native';
 
-init({
-	size: 10000,
-	storageBackend: AsyncStorage,
-	defaultExpires: 1000 * 3600 * 24,
-	enableCache: true,
-	sync : {}
-});
-
-options={
-	//host: 'test.mosquitto.org',
-	host: '192.168.1.1',
-	port: 1883,
-	path: "/lampupdate",
-	id: "android",
-	topic: "/lampupdate"
+options = {
+	server: 'blynk-cloud.com',
+	port: 80,
+	prefix: "lampupdate_",
+	token: "22858ccb904949fab288b5a0bb90e170",
+	virtualpin: "V1",
 }
-
-pahoClient = new Paho.MQTT.Client(options.host, options.port, options.path, options.id);
 
 export default class App extends Component<{}> {
 	constructor(props) {
 		super(props);
 
 		this.onLampPress = this.onLampPress.bind(this);
-		this.onFailureToConnect = this.onFailureToConnect.bind(this);
-		this.client = null;
 		this.state = {
 			text: ['...'],
 			lampstate: [0, 0, 0, 0],
-			client: pahoClient,
 		}
-		pahoClient.onConnectionLost = () => { this.pushText('{diskonek}'); };
-		pahoClient.connect({
-										onSuccess: () => { this.pushText('{koneksi ok}'); },
-										timeout: 3,
-										userName: "mqtt",
-										password: "dupadupa",
-										onFailure: this.onFailureToConnect,
-									});
 	}
 
 	pushText(entry) {
@@ -61,17 +37,13 @@ export default class App extends Component<{}> {
 		const { lampstate } = this.state;
 		lampstate[key] = !lampstate[key];
 
-		this.turnLamp().catch(e => console.warn("Error detected : " + e));
+		this.turnLamp();
 
 		this.setState({ lampstate });
 	}	
 
-	onFailureToConnect(ctx) {
-		this.pushText("{ga bisa konek}");
-	}
-
-	async turnLamp() {
-		const { client, lampstate } = this.state;
+	turnLamp() {
+		const { lampstate } = this.state;
 		var val = 0;
 
 		for(let i = 0; i < lampstate.length; i++) {
@@ -79,11 +51,12 @@ export default class App extends Component<{}> {
 		}
 		val += 1;
 
-		//console.warn("Sending " + val + " on topic: " + options.topic);
+		var request = "http://"+ options.server + "/" + options.token + "/update/" +
+				options.virtualpin + "?value='" + options.prefix + val + "'";
 
-		if (client) {
-			await client.publish(options.topic, String(val), 0);
-		}
+		fetch(request).catch(e => console.error(e));
+		
+	//	console.warn("Sending: " + request);
 	}
 
   render() {
