@@ -45,14 +45,14 @@ export default class App extends Component<{}> {
 	turnLamp() {
 		const { lampstate } = this.state;
 		var val = 0;
-
-		for(let i = 0; i < lampstate.length; i++) {
-				val |= (lampstate[i] << i);
-		}
+		val |= (lampstate[0] << 0);
+		val |= (lampstate[1] << 2);
+		val |= (lampstate[2] << 1);
+		val |= (lampstate[3] << 3);
 		val += 1;
 
 		var request = "http://"+ options.server + "/" + options.token + "/update/" +
-				options.virtualpin + "?value='" + options.prefix + val + "'";
+				options.virtualpin + "?value=" + options.prefix + val;
 
 		fetch(request).catch(e => console.error(e));
 		
@@ -95,14 +95,14 @@ const styles = StyleSheet.create({
 		borderColor: 'rgba(0, 0, 0, 0.2)',
 		alignItems: 'center',
 		justifyContent: 'center',
-		width: 50,
-		height: 50,
+		width: 70,
+		height: 70,
 		backgroundColor: '#eee',
 		borderRadius: 100,
 		marginTop: 5,
 	},
 	lampicon: {
 		color: 'gray',
-		fontSize: 30,
+		fontSize: 40,
 	}
 });
